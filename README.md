@@ -5,7 +5,6 @@
 - Mobile App zum Aufbauen und Verfolgen täglicher Gewohnheiten mit Zitaten und Sync
 
 ---
-
 ## Features
 
 ### Gewohnheiten verwalten
@@ -37,3 +36,20 @@
 - Automatischer Sync mit Supabase
 
 ---
+
+## Verlauf des Projekts:
+
+### Montag: 
+- Vorstellung Projekt
+- Projektaufgabe Persistente Liste (Abgabe Mittwoch 9:00 Uhr)
+### Dienstag:
+- Aufbau Architektur/UML/Setup
+- Setup Supabase
+### Mittwoch: 
+- Review Projektaufgabe + Umbau 
+- Projektaufgabe Anbindung Backend (Abgabe Freitag 9:00 Uhr)
+### Donnerstag: 
+- Anbindung DummyJSON (Zitate) + Settings
+### Freitag:
+- Review Anbindung Backend
+- Einbauen Streaks
