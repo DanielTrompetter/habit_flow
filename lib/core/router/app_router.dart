@@ -1,6 +1,6 @@
 import 'package:go_router/go_router.dart';
 import 'package:habit_flow/features/splash/splash_screen.dart';
-import 'package:habit_flow/features/task_list/screens/home_screen.dart';
+import 'package:habit_flow/features/habits/ui/screens/home_screen.dart';
 
 abstract class AppRoutes {
   static const splash = '/';
