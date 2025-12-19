@@ -1,5 +1,5 @@
 import 'package:dio/dio.dart';
-import 'package:habit_flow/features/quote/model/quote.dart';
+import 'package:habit_flow/features/quote/models/quote.dart';
 
 class QuoteService {
   

@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:habit_flow/features/habits/models/habit.dart';
+import 'package:habit_flow/features/habits/models/habits/habit.dart';
 
 Future<void> showEditHabitDialog({
   required BuildContext context,

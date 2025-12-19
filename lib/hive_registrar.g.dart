@@ -4,8 +4,8 @@
 
 import 'package:hive_ce/hive.dart';
 import 'package:habit_flow/core/models/sync_status.dart';
-import 'package:habit_flow/features/auth/models/user.dart';
-import 'package:habit_flow/features/habits/models/habit.dart';
+import 'package:habit_flow/features/auth/models/user/user.dart';
+import 'package:habit_flow/features/habits/models/habits/habit.dart';
 
 extension HiveRegistrar on HiveInterface {
   void registerAdapters() {

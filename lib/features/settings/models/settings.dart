@@ -7,7 +7,7 @@ class Settings {
     this.theme = AppTheme.system,
     this.notificationsOn = true,
     this.reminderTime,
-    this.syncType = SyncType.manual,
+    this.syncType = SyncType.auto,
   });
 
   final AppTheme theme;

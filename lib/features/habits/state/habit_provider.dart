@@ -2,12 +2,16 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:hive_ce/hive.dart';
 import 'package:uuid/uuid.dart';
 import 'package:habit_flow/core/models/sync_status.dart';
-import 'package:habit_flow/features/habits/models/habit.dart';
+import 'package:habit_flow/features/habits/models/habits/habit.dart';
+import 'package:habit_flow/features/habits/services/habit_sync_service.dart';
 import 'package:habit_flow/features/settings/state/settings_provider.dart';
 import 'package:habit_flow/features/settings/models/settings.dart';
+import 'package:habit_flow/features/auth/state/auth/auth_provider.dart';
 
 class HabitNotifier extends Notifier<List<Habit>> {
   late Box<Habit> _box;
+
+  HabitSyncService get _syncService => ref.read(habitSyncServiceProvider);
 
   @override
   List<Habit> build() {
@@ -82,21 +86,122 @@ class HabitNotifier extends Notifier<List<Habit>> {
     }
   }
 
-  Future<void> syncToCloud() async {
-    final pendingHabits = _box.values
+  Future<bool> syncToCloud() async {
+    final user = ref.read(authProvider);
+    if (user == null || user.guestMode) return false;
+
+    await _migrateHabitsToUser(user.id);
+
+    final localHabits = _box.values.toList();
+    final pendingHabits = localHabits
         .where((h) => h.syncStatus == SyncStatus.pending)
         .toList();
 
-    for (final habit in pendingHabits) {
-      try {
-        habit.syncStatus = SyncStatus.synced;
-        await habit.save();
-      } catch (e) {
-        habit.syncStatus = SyncStatus.error;
+    if (pendingHabits.isEmpty) {
+      await fetchFromCloud();
+      return true;
+    }
+
+    final result = await _syncService.syncHabits(
+      userId: user.id,
+      localHabits: localHabits,
+    );
+
+    if (result.success) {
+      await _markHabitsSynced(pendingHabits);
+      await _removeDeletedHabits(result.deletedIds);
+      await _mergeRemoteHabits(result.remoteHabits);
+      await _removeLocalHabitsNotInRemote(result.remoteHabits);
+      _refreshState();
+      return true;
+    }
+
+    await _markHabitsError(pendingHabits);
+    _refreshState();
+    return false;
+  }
+
+  Future<void> fetchFromCloud() async {
+    final user = ref.read(authProvider);
+    if (user == null || user.guestMode) return;
+
+    final remoteHabits = await _syncService.fetchHabitsForUser(user.id);
+    await _mergeRemoteHabits(remoteHabits, skipPending: true);
+    await _removeLocalHabitsNotInRemote(remoteHabits);
+    _refreshState();
+  }
+
+  Future<void> _migrateHabitsToUser(String userId) async {
+    for (final habit in _box.values) {
+      if (habit.userId != userId) {
+        habit.userId = userId;
+        habit.syncStatus = SyncStatus.pending;
         await habit.save();
       }
     }
+  }
 
+  Future<void> _markHabitsSynced(List<Habit> habits) async {
+    for (final habit in habits) {
+      habit.syncStatus = SyncStatus.synced;
+      await habit.save();
+    }
+  }
+
+  Future<void> _markHabitsError(List<Habit> habits) async {
+    for (final habit in habits) {
+      habit.syncStatus = SyncStatus.error;
+      await habit.save();
+    }
+  }
+
+  Future<void> _removeDeletedHabits(List<String> ids) async {
+    for (final id in ids) {
+      await _box.delete(id);
+    }
+  }
+
+  Future<void> _removeLocalHabitsNotInRemote(List<Habit> remoteHabits) async {
+    final remoteIds = remoteHabits.map((h) => h.id).toSet();
+    final localHabits = _box.values.toList();
+
+    for (final local in localHabits) {
+      if (local.syncStatus == SyncStatus.pending) continue;
+      if (!remoteIds.contains(local.id)) {
+        await _box.delete(local.id);
+      }
+    }
+  }
+
+  Future<void> _mergeRemoteHabits(
+    List<Habit> remoteHabits, {
+    bool skipPending = false,
+  }) async {
+    for (final remote in remoteHabits) {
+      final local = _box.get(remote.id);
+
+      if (local == null) {
+        remote.syncStatus = SyncStatus.synced;
+        await _box.put(remote.id, remote);
+        continue;
+      }
+
+      if (skipPending && local.syncStatus == SyncStatus.pending) continue;
+      if (!remote.updatedAt.isAfter(local.updatedAt)) continue;
+
+      local
+        ..name = remote.name
+        ..description = remote.description
+        ..isActive = remote.isActive
+        ..completedDates = remote.completedDates
+        ..currentStreak = remote.currentStreak
+        ..updatedAt = remote.updatedAt
+        ..syncStatus = SyncStatus.synced;
+      await local.save();
+    }
+  }
+
+  void _refreshState() {
     state = _box.values.where((h) => h.isActive).toList();
   }
 

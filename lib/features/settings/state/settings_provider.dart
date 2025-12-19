@@ -15,7 +15,7 @@ class SettingsNotifier extends AsyncNotifier<Settings> {
     final themeIndex = prefs.getInt(_themeKey) ?? AppTheme.system.index;
     final notificationsOn = prefs.getBool(_notificationsOnKey) ?? true;
     final reminderTime = prefs.getString(_reminderTimeKey);
-    final syncTypeIndex = prefs.getInt(_syncTypeKey) ?? SyncType.manual.index;
+    final syncTypeIndex = prefs.getInt(_syncTypeKey) ?? SyncType.auto.index;
 
     return Settings(
       theme: AppTheme.values[themeIndex],

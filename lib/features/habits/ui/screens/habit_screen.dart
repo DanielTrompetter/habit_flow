@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:habit_flow/features/auth/state/auth_provider.dart';
+import 'package:habit_flow/features/auth/state/auth/auth_provider.dart';
 import 'package:habit_flow/features/habits/state/habit_provider.dart';
-import 'package:habit_flow/features/habits/ui/widgets/empty_habits.dart';
-import 'package:habit_flow/features/habits/ui/widgets/habit_list.dart';
+import 'package:habit_flow/features/habits/state/habit_ui_provider.dart';
+import 'package:habit_flow/features/habits/ui/widgets/add_habit_row.dart';
+import 'package:habit_flow/features/habits/ui/widgets/habit_app_bar_actions.dart';
+import 'package:habit_flow/features/habits/ui/widgets/habit_body.dart';
 
 class HabitScreen extends ConsumerStatefulWidget {
   const HabitScreen({super.key});
@@ -18,14 +20,41 @@ class _HabitScreenState extends ConsumerState<HabitScreen> {
   @override
   void initState() {
     super.initState();
-    _ensureUserExists();
+    _initializeAndSync();
   }
 
-  Future<void> _ensureUserExists() async {
+  Future<void> _initializeAndSync() async {
     final user = ref.read(authProvider);
     if (user == null) {
       await ref.read(authProvider.notifier).createGuestUser();
+    } else if (!user.guestMode) {
+      await ref.read(habitProvider.notifier).syncToCloud();
     }
+  }
+
+  Future<void> _syncHabits() async {
+    final ui = ref.read(habitUiProvider.notifier);
+    final user = ref.read(authProvider);
+    if (user == null || user.guestMode) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Melde dich an, um zu synchronisieren')),
+      );
+      return;
+    }
+
+    ui.setSyncing(true);
+    final success = await ref.read(habitProvider.notifier).syncToCloud();
+
+    if (!mounted) return;
+    ui.setSyncing(false);
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(
+          success ? 'Synchronisierung erfolgreich' : 'Synchronisierung fehlgeschlagen',
+        ),
+      ),
+    );
   }
 
   @override
@@ -38,9 +67,10 @@ class _HabitScreenState extends ConsumerState<HabitScreen> {
     if (_controller.text.trim().isEmpty) return;
     final user = ref.read(authProvider);
     if (user != null) {
-      ref
-          .read(habitProvider.notifier)
-          .addHabit(userId: user.id, name: _controller.text.trim());
+      ref.read(habitProvider.notifier).addHabit(
+            userId: user.id,
+            name: _controller.text.trim(),
+          );
       _controller.clear();
     }
   }
@@ -49,61 +79,37 @@ class _HabitScreenState extends ConsumerState<HabitScreen> {
   Widget build(BuildContext context) {
     final habits = ref.watch(habitProvider);
     final habitNotifier = ref.read(habitProvider.notifier);
+    final uiState = ref.watch(habitUiProvider);
 
     return Scaffold(
       appBar: AppBar(
         title: const Text('Habit Flow'),
         actions: [
-          if (habits.isNotEmpty)
-            Padding(
-              padding: const EdgeInsets.only(right: 16),
-              child: Center(
-                child: Text(
-                  habitNotifier.progressText,
-                  style: const TextStyle(fontSize: 14),
-                ),
-              ),
-            ),
+          HabitAppBarActions(
+            showProgress: habits.isNotEmpty,
+            progressText: habitNotifier.progressText,
+            isSyncing: uiState.isSyncing,
+            onSync: _syncHabits,
+          ),
         ],
       ),
       body: Column(
         children: [
-          Expanded(
-            child: habits.isEmpty
-                ? const EmptyHabits()
-                : HabitList(
-                    habits: habits,
-                    onToggle: (id) {
-                      ref
-                          .read(habitProvider.notifier)
-                          .toggleHabitCompletion(id);
-                    },
-                    onEdit: (id, newName) {
-                      ref
-                          .read(habitProvider.notifier)
-                          .updateHabit(id, name: newName);
-                    },
-                    onDelete: (id) {
-                      ref.read(habitProvider.notifier).deleteHabit(id);
-                    },
-                  ),
+          HabitBody(
+            habits: habits,
+            onToggle: (id) {
+              ref.read(habitProvider.notifier).toggleHabitCompletion(id);
+            },
+            onEdit: (id, newName) {
+              ref.read(habitProvider.notifier).updateHabit(id, name: newName);
+            },
+            onDelete: (id) {
+              ref.read(habitProvider.notifier).deleteHabit(id);
+            },
           ),
-          Padding(
-            padding: const EdgeInsets.all(16),
-            child: Row(
-              children: [
-                Expanded(
-                  child: TextField(
-                    controller: _controller,
-                    decoration: const InputDecoration(
-                      hintText: 'Habit hinzufügen',
-                    ),
-                    onSubmitted: (_) => _addHabit(),
-                  ),
-                ),
-                IconButton(icon: const Icon(Icons.add), onPressed: _addHabit),
-              ],
-            ),
+          AddHabitRow(
+            controller: _controller,
+            onAdd: _addHabit,
           ),
         ],
       ),

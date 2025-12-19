@@ -1,5 +1,5 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:habit_flow/features/quote/model/quote.dart';
+import 'package:habit_flow/features/quote/models/quote.dart';
 import 'package:habit_flow/features/quote/services/quote_service.dart';
 
 class QuoteNotifier extends AsyncNotifier<Quote> {

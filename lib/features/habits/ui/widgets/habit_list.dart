@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:habit_flow/features/habits/models/habit.dart';
+import 'package:habit_flow/features/habits/models/habits/habit.dart';
 import 'package:habit_flow/features/habits/ui/widgets/edit_habit_dialog.dart';
 
 class HabitList extends StatelessWidget {
